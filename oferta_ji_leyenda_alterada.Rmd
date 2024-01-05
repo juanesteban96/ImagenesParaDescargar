@@ -1,0 +1,137 @@
+---
+title: "Implementación de la Quinta Hora en el Nivel Inicial"
+output: html_document
+date: ""
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+library(readxl)
+library(tidyverse)
+library(data.table)
+library(knitr)
+library(kableExtra)
+library(sf)
+library(leaflet)
+library(tidyr)
+library(openxlsx)
+
+library(leaflet)  # libreria para graficar mapas interactivos
+library(sf)  # manejo de informacion geografica 
+library(viridis)  # paletas de colores
+library(RColorBrewer)  # mas paletas de colores
+library(dplyr)  # manejo de bases de datos
+library(htmlwidgets)
+library(htmltools)
+library(base64enc)
+
+
+base <- read_excel("J25H JIRIMMES-JI Rural_Insumo mapa.xlsx")
+
+base$Latitud <- as.numeric(base$Latitud)
+
+base$Longitud <- as.numeric(base$Longitud)
+
+distritos <- st_read("indec_codgeo_pba_codgeo_pba_dpto (4).shp")
+
+jirimm <- filter(base, grepl("^JIRIMM", Establecimiento))
+
+ji <- filter(base, grepl("^JI ", Establecimiento))
+
+cuadrado <- "C:/Users/esteb/OneDrive/Escritorio/OfertaJI_JIRIMMES/cuadrado_celeste.png"
+
+
+triangulo <- "C:/Users/esteb/OneDrive/Escritorio/OfertaJI_JIRIMMES/triangulo_amarillo.png"
+
+cuadrado_celeste <- function(cuadrado) {
+  makeIcon(
+    iconUrl = cuadrado, # Usar el argumento iconPath aquí
+    iconWidth = 12, # Ancho del icono en píxeles
+    iconHeight = 12  # Altura del icono en píxeles
+  )
+}
+
+triangulo_amarillo <- function(triangulo) {
+  makeIcon(
+    iconUrl = triangulo, # Usar el argumento iconPath aquí
+    iconWidth = 13, # Ancho del icono en píxeles
+    iconHeight = 13  # Altura del icono en píxeles
+  )
+}
+
+paleta_jardines <- colorFactor(palette = c("darkorange1", "skyblue2"),
+                               domain = c("JI","JIRIMM"))
+                    
+
+popup_jirimm <- paste0("<b>", "Establecimiento: ", "</b>", as.character(jirimm$Establecimiento),
+                "<br>", "<b>","Fecha de inicio: ", "</b>",
+                as.character(jirimm$`Fecha Inicio`), "<br>", "<b>")
+
+
+popup_ji <- paste0("<b>", "Establecimiento: ", "</b>", as.character(ji$Establecimiento),
+                "<br>", "<b>","Fecha de inicio: ", "</b>",
+                as.character(ji$`Fecha Inicio`), "<br>", "<b>")
+
+
+
+imagen_a_base64 <- function(ruta) {
+  # Leer la imagen en binario
+  imagen_binaria <- readBin(ruta, "raw", file.info(ruta)$size)
+  
+  # Convertir la imagen a base64
+  imagen_base64 <- paste0("data:image/png;base64,", base64encode(imagen_binaria))
+  
+  return(imagen_base64)
+}
+
+# Convertir las imágenes a base64
+cuadrado_base64 <- imagen_a_base64(cuadrado)
+triangulo_base64 <- imagen_a_base64(triangulo)
+
+
+
+```
+
+Mapa 1. Distribución de jardines autorizados para implementar la Quinta Hora
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+
+mapa_jardines <- leaflet(jirimm) %>%
+  addProviderTiles("OpenStreetMap.Mapnik") %>%
+  addMarkers(
+    lng = ~Longitud, lat = ~Latitud,
+    group = "JIRIMM",
+    icon = cuadrado_celeste(cuadrado),
+    popup = popup_jirimm
+  ) %>%
+  addMarkers(
+    data = ji,
+    lng = ~Longitud, lat = ~Latitud,
+    icon = triangulo_amarillo(triangulo),
+    group = "JI",
+    popup = popup_ji
+  ) %>%
+  addPolygons(
+    data = distritos,
+    fillColor = "White", fillOpacity = 0.5,
+    color = "black",
+    label = distritos$departamen,
+    weight = 1,
+    highlightOptions = highlightOptions(color = "white", weight = 2, bringToFront = TRUE)
+  ) %>%
+  addControl(
+    html = sprintf(
+      '<div><img src="%s" width="12" height="12"> JIRIMM</div>
+       <div><img src="%s" width="13" height="13"> JI</div>',
+      cuadrado_base64, triangulo_base64
+    ),
+    position = "bottomright"
+  ) %>%
+  addLayersControl(
+    overlayGroups = c("JIRIMM", "JI"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+
+mapa_jardines
+
+
+```
+
